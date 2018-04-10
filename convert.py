@@ -30,4 +30,4 @@ class Convert(object):
 
 if __name__ == '__main__':
     transformer = Convert()
-    print(transformer.toNum(transformer.toStr(45236)))
+    print(transformer.toNum('URLs'))

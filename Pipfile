@@ -1,23 +1,18 @@
 [[source]]
-
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 verify_ssl = true
 name = "pypi"
 
-
 [packages]
-
 flask = "*"
 flask-restful = "*"
+mysqlclient = "*"
 flask-sqlalchemy = "*"
-flask-redis = "*"
-pymysql = "*"
-
+flask-bootstrap = "*"
+flask-wtf = "*"
+flask-moment = "*"
 
 [dev-packages]
 
-
-
 [requires]
-
 python_version = "3.6"
