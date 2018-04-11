@@ -9,7 +9,7 @@ import re
 from convert import Convert
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:gwf@localhost:3306/ShortID_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:token@localhost:3306/shortid_db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = 'true'
 app.config['SECRET_KEY'] = 'dont do badthings to me please'
 db = SQLAlchemy(app)
@@ -28,6 +28,7 @@ class RawURL(db.Model):
     def to_json(self):
         return {
             'url': self.url,
+            's_url' : radix_transfer.toStr(self.uid)
         }
 
 
@@ -35,6 +36,7 @@ class URLForm(FlaskForm):
     # validators.URL() shit...
     url = StringField('URL', validators=[validators.DataRequired()])
     submit = SubmitField('Submit')
+    output = StringField()
 
 @app.errorhandler(404)
 def page_not_found():
@@ -50,21 +52,28 @@ def index():
     form = URLForm()
     if request.method == 'GET':
         return render_template('index.html', form=form)
+
+    # todo 'front end|architecture|RESTful'
     if request.method == 'POST':
         if form.validate_on_submit():
-            session['url'] = form.url.data
+            raw_url = form.url.data
+            pattern = re.compile(r'://')
+            t = pattern.split(raw_url)
+            processed_url = t[1] if (len(t) > 1) else t[0]
+
+            print(processed_url)
+
             info = RawURL.query.filter_by(url=form.url.data).first()
             # graceful byebye~
             if info is None:
-                info = RawURL(url=form.url.data)
+                info = RawURL(url=processed_url)
                 db.session.add(info)
                 db.session.commit()
-
-            session['s_url'] = radix_transfer.toStr(info.uid)
-            # todo 'front end|architecture|RESTful'
-            print(url_for('index', _external=True) + session.get('s_url'))
-            return render_template('index.html', form=form, url=session.get('url'), s_url=session.get('s_url'))
+            ret_url = url_for('index', _external=True) + radix_transfer.toStr(info.uid)
+            form.url.data = raw_url
+            form.output.data = ret_url
         return render_template('index.html', form=form)
+
 
 @app.route('/<string:str>')
 def let_s_jump(str):
@@ -74,11 +83,14 @@ def let_s_jump(str):
     line = RawURL.query.filter_by(uid=uid).first()
     if line is None:
         page_not_found()
-        return
-    # if line.url.find('http://') or line.url.find('https://')
-    return redirect(line.url)
+    else :
+        # todo redirect urls like baidu.com
+        return redirect('https://'+line.url)
 
-
+# todo direct jump from url...
+@app.route('/api/<path:url>')
+def direct_jump(url):
+    pass
 
 if __name__ == '__main__':
     db.create_all()
