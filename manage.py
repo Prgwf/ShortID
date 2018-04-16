@@ -5,17 +5,13 @@ from flask_restful import Api, Resource
 from flask_bootstrap import Bootstrap
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, validators
-import re
+import json, optparse, re
 from convert import Convert
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:token@localhost:3306/shortid_db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = 'true'
-app.config['SECRET_KEY'] = 'dont do badthings to me please'
 db = SQLAlchemy(app)
 api = Api(app)
 bootstrap = Bootstrap(app)
-
 radix_transfer = Convert()
 
 class RawURL(db.Model):
@@ -27,8 +23,8 @@ class RawURL(db.Model):
 
     def to_json(self):
         return {
-            'url': self.url,
-            's_url' : radix_transfer.toStr(self.uid)
+            "url": self.url,
+            "s_url" : radix_transfer.toStr(self.uid)
         }
 
 
@@ -61,9 +57,9 @@ def index():
             t = pattern.split(raw_url)
             processed_url = t[1] if (len(t) > 1) else t[0]
 
-            print(processed_url)
+            # print(processed_url)
 
-            info = RawURL.query.filter_by(url=form.url.data).first()
+            info = RawURL.query.filter_by(url=processed_url).first()
             # graceful byebye~
             if info is None:
                 info = RawURL(url=processed_url)
@@ -78,20 +74,47 @@ def index():
 @app.route('/<string:str>')
 def let_s_jump(str):
     r = url_for('let_s_jump', _external=True, str=str)
-    print(r)
+    # print(r)
     uid = radix_transfer.toNum(str)
     line = RawURL.query.filter_by(uid=uid).first()
     if line is None:
         page_not_found()
     else :
-        # todo redirect urls like baidu.com
-        return redirect('https://'+line.url)
+        # todo redirect urls like baidu.com gracefully...
+        return redirect('http://'+line.url)
 
-# todo direct jump from url...
+# todo return json
 @app.route('/api/<path:url>')
 def direct_jump(url):
-    pass
+    pattern = re.compile(r'://')
+    t = pattern.split(url)
+    processed_url = t[1] if (len(t) > 1) else t[0]
+    info = RawURL.query.filter_by(url=processed_url).first()
+    if info is None:
+        info = RawURL(url=processed_url)
+        db.session.add(info)
+        db.session.commit()
+    return info.to_json()
+
+
+def parse_opt():
+    parser = optparse.OptionParser()
+
+    parser.add_option('-c', dest='config')
+
+    (options, args) = parser.parse_args()
+
+    return options
+
+def load_config(options):
+    file = options.config
+    with open(file, 'r') as f:
+        config = json.load(f)
+        for key, value in config.items():
+            app.config[key] = value
+
 
 if __name__ == '__main__':
+    load_config(parse_opt())
     db.create_all()
     app.run()
